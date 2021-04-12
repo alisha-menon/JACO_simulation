@@ -63,6 +63,7 @@ def move_robot(robotID, jointPoses):
 
 def robot_coords(robotID):
     states = p.getLinkStates(robotID, range(11))
+    #print(len(states))
     coords = np.array([s[0] for s in states])
     return coords[1:8]
 

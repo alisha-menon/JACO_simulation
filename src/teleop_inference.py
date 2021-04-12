@@ -379,13 +379,19 @@ class TeleopInference(TeleopInferenceBase):
 	def keyboard_input_callback(self):
 		# Reset variables.
 		jointVelocities = [0.0] * p.getNumJoints(self.bullet_environment["robot"])
+		#print(p.getNumJoints(self.bullet_environment["robot"]))
 		#dist_step = [0.01, 0.01, 0.01]
 		dist_step = [0.0025, 0.0025, 0.0025]
 		time_step = 0.05
 		turn_step = 0.025
 		EElink = 7
 
-		# Get current EE position.
+		# Get current EE position. 
+
+		#robot_coords only gives the 7 degrees of freedom, EEpos is only the position of the end effector. Should see what the remaining 3 degrees are maybe the fingers? See how the wrist is specifically addressed and try to set velocity for fingers too
+
+		all_coords = robot_coords(self.bullet_environment["robot"])
+		#print(all_coords)
 		EEPos = robot_coords(self.bullet_environment["robot"])[EElink-1]
 		self.EEPos = EEPos
 
@@ -405,6 +411,7 @@ class TeleopInference(TeleopInferenceBase):
 			EEPos_new[1] += dist_step[1]
 		if p.B3G_UP_ARROW in keys:
 			EEPos_new[0] -= dist_step[0]
+			#print("current position: ",EEPos,"new position: ",EEPos_new)
 		if p.B3G_DOWN_ARROW in keys:
 			EEPos_new[0] += dist_step[0]
 		if ord('u') in keys:
@@ -412,17 +419,32 @@ class TeleopInference(TeleopInferenceBase):
 		if ord('j') in keys:
 			EEPos_new[2] -= dist_step[2]
 
+		#print(EEPos)
+		#print(EEPos_new)
+
 		# Get new velocity.
 		if not np.array_equal(EEPos_new, EEPos):
 			newPoses = np.asarray((0.0,) + p.calculateInverseKinematics(self.bullet_environment["robot"], EElink, EEPos_new))
+			print(len(newPoses))
 			jointVelocities = (newPoses - jointPoses) / time_step
 		if ord('h') in keys:
 			jointVelocities[EElink] += turn_step / time_step
 		if ord('k') in keys:
 			jointVelocities[EElink] -= turn_step / time_step
-
+		if ord('c') in keys:
+			jointVelocities[EElink+1] += turn_step / time_step
+		if ord('x') in keys:
+			jointVelocities[EElink+1] -= turn_step / time_step
+		if ord('d') in keys:
+			jointVelocities[EElink+2] += turn_step / time_step
+		if ord('f') in keys:
+			jointVelocities[EElink+2] -= turn_step / time_step		
+		if ord('a') in keys:
+			jointVelocities[EElink+3] += turn_step / time_step
+		if ord('s') in keys:
+			jointVelocities[EElink+3] -= turn_step / time_step		
 		# Update joystick command.
-		self.joy_cmd = np.diag(jointVelocities[1:8])
+		self.joy_cmd = np.diag(jointVelocities[1:11])
 		#print 'norm(velocity * timestep) ** 2:', np.linalg.norm(np.array(jointVelocities[1:8]) * self.timestep) ** 2
 
 		#print 'current angles:', jointPoses[1:8] * (180/np.pi)
@@ -433,8 +455,10 @@ class TeleopInference(TeleopInferenceBase):
 			#print(self.inference_method)
 			#joint_angles = np.diag(jointPoses[1:8] * (180/np.pi))
 			self.joint_angles_callback(joint_angles)
+			#print("not collect ")
 		else:
 			self.cmd = self.joy_cmd
+			#print("collect")
 			#print(self.inference_method)
 
 
