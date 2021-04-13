@@ -36,7 +36,7 @@ def setup_environment(goals):
         #p.addUserDebugText("Goal {}".format(i), pos, [0, 0, 0], 10)
 
     # Add a mug in Jaco's hand.
-    targetPos = [-0.7, 0.0, 0.6]
+    targetPos = [-0.8, 0.0, 0.6]
     targetOr = p.getQuaternionFromEuler([0, -1.5, 0])
     jointPoses = p.calculateInverseKinematics(objectID["robot"], 7, targetPos, targetOr)
     move_robot(objectID["robot"], jointPoses)

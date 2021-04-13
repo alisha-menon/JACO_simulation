@@ -61,6 +61,15 @@ CONFIG_FILE_DICT = {
 	}
 }
 
+def topview1():
+	p.resetDebugVisualizerCamera(cameraDistance=1.50, cameraYaw=90, cameraPitch=-70, cameraTargetPosition=[-0.4, -0.25, -0.05])
+
+def topview2():
+	p.resetDebugVisualizerCamera(cameraDistance=1.50, cameraYaw=90, cameraPitch=-89, cameraTargetPosition=[-0.7, -0.25, -0.05])
+
+def sideview():
+	p.resetDebugVisualizerCamera(cameraDistance=2, cameraYaw=0, cameraPitch=0, cameraTargetPosition=[-0.6, 1, -0.05])
+
 
 class TeleopInference(TeleopInferenceBase):
 	"""
@@ -75,13 +84,6 @@ class TeleopInference(TeleopInferenceBase):
 		physicsClient = p.connect(p.GUI)
 		#physicsClient = p.connect(p.GUI, options="--opengl2")
 
-		# Set camera angle.
-		#p.resetDebugVisualizerCamera(cameraDistance=2.50, cameraYaw=90, cameraPitch=-30, cameraTargetPosition=[-0.8,0.05,0.02]) # for tasks 1, 2, 4
-		#p.resetDebugVisualizerCamera(cameraDistance=1.50, cameraYaw=90, cameraPitch=-70, cameraTargetPosition=[-0.4, -0.25, -0.05])
-		#view from above
-		#p.resetDebugVisualizerCamera(cameraDistance=1.50, cameraYaw=90, cameraPitch=-89, cameraTargetPosition=[-0.8, -0.25, -0.05]) # for tasks 1, 2, 4
-		#view from side
-		p.resetDebugVisualizerCamera(cameraDistance=2, cameraYaw=0, cameraPitch=0, cameraTargetPosition=[-0.6, 1, -0.05])
 
 		p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 1, lightPosition=[-0.4, -0.25,10])
 
@@ -90,6 +92,9 @@ class TeleopInference(TeleopInferenceBase):
 
 		# Setup the environment.
 		self.bullet_environment = setup_environment(self.visual_goals)
+		top1Button = p.addUserDebugParameter("Top-down View #1", 1, 0, 0)
+		top2Button = p.addUserDebugParameter("Top-down View #2", 1, 0, 0)
+		sideButton = p.addUserDebugParameter("Side View", 1, 0, 0)
 		#self.bullet_environment = setup_environment(self.goals)
 
 		# load learned goals
@@ -156,6 +161,11 @@ class TeleopInference(TeleopInferenceBase):
 		self.queries = 0
 		self.recorded_demos = []
 
+		sideview()
+		top1Num = 0
+		top2Num = 0
+		sideNum = 0
+
 		while self.queries < N:
 			print ("Attempting round {}.".format(self.queries+1))
 			move_robot(self.bullet_environment["robot"], bullet_start)
@@ -167,6 +177,26 @@ class TeleopInference(TeleopInferenceBase):
 			self.num_key_presses = 0
 			# Start simulation.
 			while self.running:
+				top1Pushes = p.readUserDebugParameter(top1Button)
+				top2Pushes = p.readUserDebugParameter(top2Button)
+				sidePushes = p.readUserDebugParameter(sideButton)
+				print(top1Pushes)
+				print(top2Pushes)
+				print(sidePushes)
+				if top1Pushes > top1Num:
+					print("Changing the view to top-down #1.")
+					top1Num = top1Pushes
+					topview1()
+
+				if top2Pushes > top2Num:
+					print("Changing the view to top-down #2.")
+					top2Num = top2Pushes
+					topview2()
+
+				if sidePushes > sideNum:
+					print("Changing the view to side.")
+					sideNum = sidePushes
+					sideview()
 				if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
 					line = raw_input()
 					break
@@ -484,6 +514,7 @@ class TeleopInference(TeleopInferenceBase):
 			D = 0.55
 			goal_dist = np.linalg.norm(self.goal_locs[goal] - self.EEPos)
 			return np.clip(goal_dist / D, 0, 1)
+
 
 	def update_IK_goals(self):
 		self.IK_goals = [p.calculateInverseKinematics(self.bullet_environment["robot"], 7, self.goal_locs[i])[:7] for i in range(self.num_goals)]
