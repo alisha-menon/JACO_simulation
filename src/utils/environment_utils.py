@@ -35,17 +35,18 @@ def setup_environment(goals):
         #p.addUserDebugLine(pos, pos+0.01, [0, 0, 1], 10)
         #p.addUserDebugText("Goal {}".format(i), pos, [0, 0, 0], 10)
 
-    # Add a mug in Jaco's hand.
     targetPos = [-0.8, 0.0, 0.6]
     targetOr = p.getQuaternionFromEuler([0, -1.5, 0])
     jointPoses = p.calculateInverseKinematics(objectID["robot"], 7, targetPos, targetOr)
     move_robot(objectID["robot"], jointPoses)
 
-    pos = [-0.8, 0, -0.05]
+    # Add a mug
+    pos = [-0.85, 0, -0.05]
     orientation = p.getQuaternionFromEuler([0, 0, 0])
     #objectID["mug"] = p.loadURDF("dinnerware/cup/cup_small.urdf", pos, orientation, useFixedBase=True)
     objectID["mug"] = p.loadURDF("dinnerware/cup/cup_small.urdf", pos, orientation)
 
+    #add mug in robot's hand
     #objectID["mug"] = p.loadURDF("dinnerware/cup/cup_small.urdf", globalScaling=1.0)
     #cid = p.createConstraint(objectID["robot"], 7, objectID["mug"], -1, p.JOINT_FIXED, [0, 0, 0], [0.0, 0.0, -0.13],
                              #[0, 0, 0], childFrameOrientation=p.getQuaternionFromEuler([0, -np.pi/2, 0]))
@@ -65,8 +66,14 @@ def robot_coords(robotID):
     states = p.getLinkStates(robotID, range(11))
     #print(len(states))
     coords = np.array([s[0] for s in states])
-    return coords[1:8]
+    return coords[1:11]
 
+def cup_coords(cupID):
+    states = p.getBasePositionAndOrientation(cupID)
+    #print(states)
+    coords = np.array(states[0])
+    #print(coords)
+    return coords
 
 def robot_orientations(robotID):
     states = p.getLinkStates(robotID, range(11))

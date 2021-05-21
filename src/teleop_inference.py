@@ -77,6 +77,9 @@ class TeleopInference(TeleopInferenceBase):
 	"""
 
 	def __init__(self, config_file):
+
+		self.state_based = 1
+
 		super(TeleopInference, self).__init__(False, config_file)
 		config = self.config
 
@@ -166,6 +169,16 @@ class TeleopInference(TeleopInferenceBase):
 		top2Num = 0
 		sideNum = 0
 
+		#state machine
+		# 1 = aligniing EE
+		# 2 = opening fingers + height
+		# 3 = making contact
+		# 4 = gripping object
+		# 5 = lifting object
+
+		current_state = 1
+		next_state = 1
+
 		while self.queries < N:
 			print ("Attempting round {}.".format(self.queries+1))
 			move_robot(self.bullet_environment["robot"], bullet_start)
@@ -177,12 +190,10 @@ class TeleopInference(TeleopInferenceBase):
 			self.num_key_presses = 0
 			# Start simulation.
 			while self.running:
+				current_state = next_state
 				top1Pushes = p.readUserDebugParameter(top1Button)
 				top2Pushes = p.readUserDebugParameter(top2Button)
 				sidePushes = p.readUserDebugParameter(sideButton)
-				print(top1Pushes)
-				print(top2Pushes)
-				print(sidePushes)
 				if top1Pushes > top1Num:
 					print("Changing the view to top-down #1.")
 					top1Num = top1Pushes
@@ -197,6 +208,7 @@ class TeleopInference(TeleopInferenceBase):
 					print("Changing the view to side.")
 					sideNum = sidePushes
 					sideview()
+
 				if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
 					line = raw_input()
 					break
@@ -210,9 +222,23 @@ class TeleopInference(TeleopInferenceBase):
 					p.removeUserDebugItem(keys_text)
 				keys_text = p.addUserDebugText("{} keys".format(self.num_key_presses),[-1,0.75,0.75],textSize=font_size)
 
-
 				# Update position.
-				self.keyboard_input_callback()
+				if self.state_based == 1:
+					if current_state == 1:
+						next_state = self.keyboard_input_callback_state1()
+					elif current_state == 2:
+						next_state = self.keyboard_input_callback_state2()
+					elif current_state == 3:
+						next_state = self.keyboard_input_callback_state3()
+					elif current_state == 4:
+						next_state = self.keyboard_input_callback_state4()
+					elif current_state == 5:
+						next_state = self.keyboard_input_callback_state5()
+					else:
+						next_state = self.keyboard_input_callback_state1()
+				else:
+					self.keyboard_input_callback()
+				#print(current_state)
 
 				# Look after button presses.
 				if self.inference_method == "collect":
@@ -220,11 +246,9 @@ class TeleopInference(TeleopInferenceBase):
 				else:
 					self.queries = 1
 
-				# Update sim position with new velocity command.
-				for i in range(len(self.cmd)):
-					p.setJointMotorControl2(self.bullet_environment["robot"], i+1, p.VELOCITY_CONTROL, targetVelocity=self.cmd[i][i])
-
 				time.sleep(0.05)
+
+
 		if self.inference_method == "collect":
 			# Save FK and IK.
 			FKs = []
@@ -406,6 +430,394 @@ class TeleopInference(TeleopInferenceBase):
 			self.demo.append(np.array(waypt))
 
 
+	def keyboard_input_callback_state1(self):
+		# Reset variables.
+		# setup y and z to be within object margin
+		jointVelocities = [0.0] * p.getNumJoints(self.bullet_environment["robot"])
+		dist_step = [0.0025, 0.0025, 0.0025]
+		time_step = 0.05
+		turn_step = 0.025
+		EElink = 7
+		next_state = 1
+		y_margin = 0.1
+		z_margin = 0.16
+
+		# Get current EE position. 
+		#robot_coords only gives the 7 degrees of freedom, EEpos is only the position of the end effector. 
+
+		all_coords = robot_coords(self.bullet_environment["robot"])
+		#print(all_coords) 
+		#there are 11 with 3 coordinates each
+		EEPos = robot_coords(self.bullet_environment["robot"])[EElink-1]
+		self.EEPos = EEPos
+
+		state = p.getJointStates(self.bullet_environment["robot"], range(p.getNumJoints(self.bullet_environment["robot"])))
+		jointPoses = np.array([s[0] for s in state])
+
+		# Parse keyboard commands.
+		EEPos_new = np.copy(EEPos)
+		keys = p.getKeyboardEvents()
+		self.num_key_presses += len(keys)
+		if p.B3G_LEFT_ARROW in keys:
+			EEPos_new[1] -= dist_step[1]
+		if p.B3G_RIGHT_ARROW in keys:
+			EEPos_new[1] += dist_step[1]
+		#if p.B3G_UP_ARROW in keys:
+		#	EEPos_new[2] += dist_step[2]
+		#if p.B3G_DOWN_ARROW in keys:
+		#	EEPos_new[2] -= dist_step[2]
+
+
+		# Get new velocity.
+		if not np.array_equal(EEPos_new, EEPos):
+			newPoses = np.asarray((0.0,) + p.calculateInverseKinematics(self.bullet_environment["robot"], EElink, EEPos_new))
+			#print(len(newPoses))
+			jointVelocities = (newPoses - jointPoses) / time_step
+
+		# Update joystick command.
+		self.joy_cmd = np.diag(jointVelocities[1:11])
+
+		if not (self.inference_method == "collect"):
+			# Move arm in openrave as well.
+			joint_angles = jointPoses[1:8] * (180/np.pi)
+			self.joint_angles_callback(joint_angles)
+		else:
+			# THIS IS THE ONE THAT IS HAPPENING
+			self.cmd = self.joy_cmd
+
+		# Update sim position with new velocity command.
+		for i in range(len(self.cmd)):
+			p.setJointMotorControl2(self.bullet_environment["robot"], i+1, p.VELOCITY_CONTROL, targetVelocity=self.cmd[i][i])
+
+		EEPos = robot_coords(self.bullet_environment["robot"])[EElink-1]
+		all_cup_coords = cup_coords(self.bullet_environment["mug"])	
+
+		#print(EEPos[1],EEPos[2])	
+		#print(all_cup_coords[1],all_cup_coords[2])
+		#print distance
+		#print(abs(EEPos[1] - all_cup_coords[1]),abs(EEPos[2] - all_cup_coords[2]))
+		# if (abs(EEPos[1] - all_cup_coords[1]) < y_margin) and (abs(EEPos[2] - all_cup_coords[2]) < z_margin):
+		# 	print("within y and z margin, switch to state 2")
+		# 	next_state = 2
+		# elif (abs(EEPos[1] - all_cup_coords[1]) < y_margin) and not (abs(EEPos[2] - all_cup_coords[2]) < z_margin):
+		# 	print("within y margin")
+		# elif (abs(EEPos[1] - all_cup_coords[1]) < y_margin) and not (abs(EEPos[2] - all_cup_coords[2]) < z_margin):
+		# 	print("within z margin")
+
+		if abs(EEPos[1] - all_cup_coords[1]) < y_margin:
+			print("within y margin")
+			next_state = 2
+
+
+		return next_state
+
+	def keyboard_input_callback_state2(self):
+		# open hand wide enough for object
+		# Reset variables.
+		jointVelocities = [0.0] * p.getNumJoints(self.bullet_environment["robot"])
+		dist_step = [0.0025, 0.0025, 0.0025]
+		time_step = 0.05
+		turn_step = 0.025
+		EElink = 7
+		next_state = 2
+		distance_margin = 0.06
+		finger_length = 0.06
+		distance_between_fingers = 0.041
+
+		# Get current EE position. 
+		#robot_coords only gives the 7 degrees of freedom, EEpos is only the position of the end effector. 
+
+		all_coords = robot_coords(self.bullet_environment["robot"])
+		#print(all_coords) 
+		#there are 11 with 3 coordinates each
+		EEPos = robot_coords(self.bullet_environment["robot"])[EElink-1]
+		self.EEPos = EEPos
+
+		state = p.getJointStates(self.bullet_environment["robot"], range(p.getNumJoints(self.bullet_environment["robot"])))
+		jointPoses = np.array([s[0] for s in state])
+
+		# Parse keyboard commands.
+		EEPos_new = np.copy(EEPos)
+		keys = p.getKeyboardEvents()
+		self.num_key_presses += len(keys)
+
+		# Get new velocity.
+		if not np.array_equal(EEPos_new, EEPos):
+			newPoses = np.asarray((0.0,) + p.calculateInverseKinematics(self.bullet_environment["robot"], EElink, EEPos_new))
+			#print(len(newPoses))
+			jointVelocities = (newPoses - jointPoses) / time_step
+		if p.B3G_LEFT_ARROW in keys:
+			jointVelocities[EElink+2] += turn_step / time_step
+			jointVelocities[EElink+3] += turn_step / time_step
+			jointVelocities[EElink+1] += turn_step / time_step
+		if p.B3G_RIGHT_ARROW in keys:
+			jointVelocities[EElink+2] -= turn_step / time_step
+			jointVelocities[EElink+3] -= turn_step / time_step
+			jointVelocities[EElink+1] -= turn_step / time_step			
+		# Update joystick command.
+		self.joy_cmd = np.diag(jointVelocities[1:11])
+
+		if not (self.inference_method == "collect"):
+			# Move arm in openrave as well.
+			joint_angles = jointPoses[1:8] * (180/np.pi)
+			self.joint_angles_callback(joint_angles)
+		else:
+			# THIS IS THE ONE THAT IS HAPPENING
+			self.cmd = self.joy_cmd
+
+		# Update sim position with new velocity command.
+		for i in range(len(self.cmd)):
+			p.setJointMotorControl2(self.bullet_environment["robot"], i+1, p.VELOCITY_CONTROL, targetVelocity=self.cmd[i][i])
+
+		#fingers have 114 degree range of motion, joint poses gives angle in radians (range of 2 radians), not seeing any change in position
+		right_finger1 = all_coords[EElink+1]
+		right_finger2 = all_coords[EElink+2]
+		left_finger = all_coords[EElink]
+		all_cup_coords = cup_coords(self.bullet_environment["mug"])
+
+		#print(EEPos[1],EEPos[2])	
+		#print(right_finger1)
+		#print(right_finger2)
+		#print(left_finger)
+		#print(all_coords)
+		state = p.getJointStates(self.bullet_environment["robot"], range(p.getNumJoints(self.bullet_environment["robot"])))
+		jointPoses = np.array([s[0] for s in state])
+		distance = math.sin(0.7 - jointPoses[EElink+1])*finger_length*2 + distance_between_fingers
+
+		#print(jointPoses)
+		#print(jointPoses[EElink+1])
+		#print(jointPoses[EElink+2])
+		#print(jointPoses[EElink+3])
+		#print(all_cup_coords[1],all_cup_coords[2])
+		#print distance
+
+		# can we translate joint angle to a radius of grip which can be used?
+		print(distance)
+
+		#print(abs(right_finger1[1] - left_finger[1]),abs(right_finger2[1] - left_finger[1]))
+
+		if (distance > distance_margin):
+			print("wide enough grasp distance, switch to state 3")
+			next_state = 3
+
+		return next_state
+
+	def keyboard_input_callback_state3(self):
+		# Reset variables.
+		jointVelocities = [0.0] * p.getNumJoints(self.bullet_environment["robot"])
+		dist_step = [0.0025, 0.0025, 0.0025]
+		time_step = 0.05
+		turn_step = 0.02
+		EElink = 7
+		next_state = 3
+		y_contact_threshold = 0.05
+		x_contact_threshold = 0.145
+		z_contact_threshold = 0.1
+
+		# Get current EE position. 
+		#robot_coords only gives the 7 degrees of freedom, EEpos is only the position of the end effector. 
+
+		all_coords = robot_coords(self.bullet_environment["robot"])
+		#print(all_coords) 
+		#there are 11 with 3 coordinates each
+		EEPos = robot_coords(self.bullet_environment["robot"])[EElink-1]
+		self.EEPos = EEPos
+
+		state = p.getJointStates(self.bullet_environment["robot"], range(p.getNumJoints(self.bullet_environment["robot"])))
+		jointPoses = np.array([s[0] for s in state])
+
+		# Parse keyboard commands.
+		EEPos_new = np.copy(EEPos)
+		keys = p.getKeyboardEvents()
+		left_key = 0
+		right_key = 0
+		self.num_key_presses += len(keys)
+		if p.B3G_UP_ARROW in keys:
+			EEPos_new[2] += dist_step[2]
+		if p.B3G_DOWN_ARROW in keys:
+			EEPos_new[2] -= dist_step[2]
+		if p.B3G_LEFT_ARROW in keys:
+			EEPos_new[0] -= dist_step[0]
+			left_key = 1
+		if p.B3G_RIGHT_ARROW in keys:
+			EEPos_new[0] += dist_step[0]
+			right_key = 1
+
+
+		# Get new velocity.
+		if not np.array_equal(EEPos_new, EEPos):
+			newPoses = np.asarray((0.0,) + p.calculateInverseKinematics(self.bullet_environment["robot"], EElink, EEPos_new))
+			#print(len(newPoses))
+			jointVelocities = (newPoses - jointPoses) / time_step
+
+		if ord('u') in keys:
+			jointVelocities[6] -= turn_step / time_step
+		if ord('j') in keys:
+			jointVelocities[6] += turn_step / time_step
+
+		# Update joystick command.
+		self.joy_cmd = np.diag(jointVelocities[1:11])
+
+		if not (self.inference_method == "collect"):
+			# Move arm in openrave as well.
+			joint_angles = jointPoses[1:8] * (180/np.pi)
+			self.joint_angles_callback(joint_angles)
+		else:
+			# THIS IS THE ONE THAT IS HAPPENING
+			self.cmd = self.joy_cmd
+
+		# Update sim position with new velocity command.
+		for i in range(len(self.cmd)):
+			p.setJointMotorControl2(self.bullet_environment["robot"], i+1, p.VELOCITY_CONTROL, targetVelocity=self.cmd[i][i])
+
+		EEPos = robot_coords(self.bullet_environment["robot"])[EElink-1]
+		all_cup_coords = cup_coords(self.bullet_environment["mug"])	
+		#print('x distance: ',abs(EEPos[0] - all_cup_coords[0]))
+		#print('y distance: ',abs(EEPos[1] - all_cup_coords[1]))
+		#print('z distance: ',abs(EEPos[2] - all_cup_coords[2]))
+
+		if (abs(EEPos[0] - all_cup_coords[0]) < x_contact_threshold) and (abs(EEPos[1] - all_cup_coords[1]) < y_contact_threshold) and (abs(EEPos[2] - all_cup_coords[2]) < z_contact_threshold):
+			print('made contact, switching to state 4')
+			next_state = 4
+
+		return next_state
+
+	def keyboard_input_callback_state4(self):
+		# Reset variables.
+		jointVelocities = [0.0] * p.getNumJoints(self.bullet_environment["robot"])
+		dist_step = [0.0025, 0.0025, 0.0025]
+		time_step = 0.05
+		turn_step = 0.025
+		EElink = 7
+		next_state = 4
+		object_width = 0.02
+		finger_length = 0.06
+		distance_between_fingers = 0.038
+		# Get current EE position. 
+		#robot_coords only gives the 7 degrees of freedom, EEpos is only the position of the end effector. 
+
+		all_coords = robot_coords(self.bullet_environment["robot"])
+		#print(all_coords) 
+		#there are 11 with 3 coordinates each
+		EEPos = robot_coords(self.bullet_environment["robot"])[EElink-1]
+		self.EEPos = EEPos
+
+		state = p.getJointStates(self.bullet_environment["robot"], range(p.getNumJoints(self.bullet_environment["robot"])))
+		jointPoses = np.array([s[0] for s in state])
+
+		# Parse keyboard commands.
+		EEPos_new = np.copy(EEPos)
+		keys = p.getKeyboardEvents()
+		self.num_key_presses += len(keys)
+		if p.B3G_UP_ARROW in keys:
+			EEPos_new[2] += dist_step[2]
+		if p.B3G_DOWN_ARROW in keys:
+			EEPos_new[2] -= dist_step[2]
+
+		# Get new velocity.
+		if not np.array_equal(EEPos_new, EEPos):
+			newPoses = np.asarray((0.0,) + p.calculateInverseKinematics(self.bullet_environment["robot"], EElink, EEPos_new))
+			#print(len(newPoses))
+			jointVelocities = (newPoses - jointPoses) / time_step
+		if p.B3G_LEFT_ARROW in keys:
+			jointVelocities[EElink+2] += turn_step / time_step
+			jointVelocities[EElink+3] += turn_step / time_step
+			jointVelocities[EElink+1] += turn_step / time_step
+		if p.B3G_RIGHT_ARROW in keys:
+			jointVelocities[EElink+2] -= turn_step / time_step
+			jointVelocities[EElink+3] -= turn_step / time_step
+			jointVelocities[EElink+1] -= turn_step / time_step		
+
+		# Update joystick command.
+		self.joy_cmd = np.diag(jointVelocities[1:11])
+
+		if not (self.inference_method == "collect"):
+			# Move arm in openrave as well.
+			joint_angles = jointPoses[1:8] * (180/np.pi)
+			self.joint_angles_callback(joint_angles)
+		else:
+			# THIS IS THE ONE THAT IS HAPPENING
+			self.cmd = self.joy_cmd
+
+		# Update sim position with new velocity command.
+		for i in range(len(self.cmd)):
+			p.setJointMotorControl2(self.bullet_environment["robot"], i+1, p.VELOCITY_CONTROL, targetVelocity=self.cmd[i][i])
+
+		state = p.getJointStates(self.bullet_environment["robot"], range(p.getNumJoints(self.bullet_environment["robot"])))
+		jointPoses = np.array([s[0] for s in state])
+		distance = math.sin(0.7 - jointPoses[EElink+1])*finger_length*2 + distance_between_fingers
+
+		if (distance < object_width):
+			print('grasping, switching to state 5')
+			next_state = 5
+
+		return next_state
+
+	def keyboard_input_callback_state5(self):
+		# Reset variables.
+		jointVelocities = [0.0] * p.getNumJoints(self.bullet_environment["robot"])
+		dist_step = [0.0025, 0.0025, 0.0025]
+		time_step = 0.05
+		turn_step = 0.025
+		EElink = 7
+		next_state = 5
+
+		# Get current EE position. 
+		#robot_coords only gives the 7 degrees of freedom, EEpos is only the position of the end effector. 
+
+		all_coords = robot_coords(self.bullet_environment["robot"])
+		#print(all_coords) 
+		#there are 11 with 3 coordinates each
+		EEPos = robot_coords(self.bullet_environment["robot"])[EElink-1]
+		self.EEPos = EEPos
+
+		state = p.getJointStates(self.bullet_environment["robot"], range(p.getNumJoints(self.bullet_environment["robot"])))
+		jointPoses = np.array([s[0] for s in state])
+
+		# Parse keyboard commands.
+		EEPos_new = np.copy(EEPos)
+		keys = p.getKeyboardEvents()
+		self.num_key_presses += len(keys)
+		if p.B3G_LEFT_ARROW in keys:
+			EEPos_new[1] -= dist_step[1]
+		if p.B3G_RIGHT_ARROW in keys:
+			EEPos_new[1] += dist_step[1]
+		if p.B3G_UP_ARROW in keys:
+			EEPos_new[0] -= dist_step[0]
+		if p.B3G_DOWN_ARROW in keys:
+			EEPos_new[0] += dist_step[0]
+		if ord('u') in keys:
+			EEPos_new[2] += dist_step[2]
+		if ord('j') in keys:
+			EEPos_new[2] -= dist_step[2]
+
+		# Get new velocity.
+		if not np.array_equal(EEPos_new, EEPos):
+			newPoses = np.asarray((0.0,) + p.calculateInverseKinematics(self.bullet_environment["robot"], EElink, EEPos_new))
+			#print(len(newPoses))
+			jointVelocities = (newPoses - jointPoses) / time_step
+		if ord('h') in keys:
+			jointVelocities[EElink] += turn_step / time_step
+		if ord('k') in keys:
+			jointVelocities[EElink] -= turn_step / time_step
+
+		# Update joystick command.
+		self.joy_cmd = np.diag(jointVelocities[1:11])
+
+		if not (self.inference_method == "collect"):
+			# Move arm in openrave as well.
+			joint_angles = jointPoses[1:8] * (180/np.pi)
+			self.joint_angles_callback(joint_angles)
+		else:
+			# THIS IS THE ONE THAT IS HAPPENING
+			self.cmd = self.joy_cmd
+
+		# Update sim position with new velocity command.
+		for i in range(len(self.cmd)):
+			p.setJointMotorControl2(self.bullet_environment["robot"], i+1, p.VELOCITY_CONTROL, targetVelocity=self.cmd[i][i])
+
+		return next_state
+
 	def keyboard_input_callback(self):
 		# Reset variables.
 		jointVelocities = [0.0] * p.getNumJoints(self.bullet_environment["robot"])
@@ -415,13 +827,18 @@ class TeleopInference(TeleopInferenceBase):
 		time_step = 0.05
 		turn_step = 0.025
 		EElink = 7
-
+		distance_margin = 0.25
+		finger_length = 0.04
+		distance_between_fingers = 0.041
 		# Get current EE position. 
 
 		#robot_coords only gives the 7 degrees of freedom, EEpos is only the position of the end effector. Should see what the remaining 3 degrees are maybe the fingers? See how the wrist is specifically addressed and try to set velocity for fingers too
 
 		all_coords = robot_coords(self.bullet_environment["robot"])
-		#print(all_coords)
+		#print(self.bullet_environment["mug"])
+		all_cup_coords = cup_coords(self.bullet_environment["mug"])
+		#print(all_cup_coords) 
+		#there are 11 with 3 coordinates each
 		EEPos = robot_coords(self.bullet_environment["robot"])[EElink-1]
 		self.EEPos = EEPos
 
@@ -441,7 +858,6 @@ class TeleopInference(TeleopInferenceBase):
 			EEPos_new[1] += dist_step[1]
 		if p.B3G_UP_ARROW in keys:
 			EEPos_new[0] -= dist_step[0]
-			#print("current position: ",EEPos,"new position: ",EEPos_new)
 		if p.B3G_DOWN_ARROW in keys:
 			EEPos_new[0] += dist_step[0]
 		if ord('u') in keys:
@@ -455,7 +871,7 @@ class TeleopInference(TeleopInferenceBase):
 		# Get new velocity.
 		if not np.array_equal(EEPos_new, EEPos):
 			newPoses = np.asarray((0.0,) + p.calculateInverseKinematics(self.bullet_environment["robot"], EElink, EEPos_new))
-			print(len(newPoses))
+			#print(len(newPoses))
 			jointVelocities = (newPoses - jointPoses) / time_step
 		if ord('h') in keys:
 			jointVelocities[EElink] += turn_step / time_step
@@ -472,7 +888,22 @@ class TeleopInference(TeleopInferenceBase):
 		if ord('a') in keys:
 			jointVelocities[EElink+3] += turn_step / time_step
 		if ord('s') in keys:
-			jointVelocities[EElink+3] -= turn_step / time_step		
+			jointVelocities[EElink+3] -= turn_step / time_step
+
+		#joint control instead of inverse kinematics
+		# if p.B3G_LEFT_ARROW in keys:
+		# 	jointVelocities[EElink-7] -= turn_step / time_step
+		# if p.B3G_RIGHT_ARROW in keys:
+		# 	jointVelocities[EElink-7] += turn_step / time_step
+		# if p.B3G_UP_ARROW in keys:
+		# 	jointVelocities[EElink-5] -= turn_step / time_step
+		# if p.B3G_DOWN_ARROW in keys:
+		# 	jointVelocities[EElink-5] += turn_step / time_step
+		# if ord('u') in keys:
+		# 	jointVelocities[EElink-6] += turn_step / time_step
+		# if ord('j') in keys:
+		# 	jointVelocities[EElink-6] -= turn_step / time_step
+
 		# Update joystick command.
 		self.joy_cmd = np.diag(jointVelocities[1:11])
 		#print 'norm(velocity * timestep) ** 2:', np.linalg.norm(np.array(jointVelocities[1:8]) * self.timestep) ** 2
@@ -487,9 +918,22 @@ class TeleopInference(TeleopInferenceBase):
 			self.joint_angles_callback(joint_angles)
 			#print("not collect ")
 		else:
+			# THIS IS THE ONE THAT IS HAPPENING
 			self.cmd = self.joy_cmd
 			#print("collect")
 			#print(self.inference_method)
+
+		# Update sim position with new velocity command.
+		for i in range(len(self.cmd)):
+			p.setJointMotorControl2(self.bullet_environment["robot"], i+1, p.VELOCITY_CONTROL, targetVelocity=self.cmd[i][i])
+
+		state = p.getJointStates(self.bullet_environment["robot"], range(p.getNumJoints(self.bullet_environment["robot"])))
+		jointPoses = np.array([s[0] for s in state])
+		distance = math.sin(0.7 - jointPoses[EElink+1])*finger_length*2 + distance_between_fingers
+		print(distance)
+		#print(jointPoses[EElink+1])
+		#print(jointPoses[EElink+2])
+		#print(jointPoses[EElink+3])
 
 
 	def idx_to_time(self, idx):
