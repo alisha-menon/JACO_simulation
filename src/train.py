@@ -33,7 +33,7 @@ class Training(TeleopInferenceBase):
 
 		NN_dict = config['NN_dict']
 		IRL_dict = config['IRL_dict']
-		print 'IRL dict', IRL_dict
+		print('IRL dict', IRL_dict)
 
 		# Load demonstrations
 		npz_dict = np.load(config['demonstrations_path'], allow_pickle=True)
@@ -79,7 +79,7 @@ class Training(TeleopInferenceBase):
 							   weight_decay=IRL_dict['weight_decay'],
 							   std=IRL_dict['std'])
 		meirl.save(config['save_path'])
-		print 'saved learned cost function in:', config['save_path']
+		print('saved learned cost function in:', config['save_path'])
 
 
 

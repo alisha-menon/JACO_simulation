@@ -26,23 +26,23 @@ from teleop_inference_base import TeleopInferenceBase
 CONFIG_FILE_DICT = {
 	0: {
 		'demos': '../config/task0_methodd_inference_config.yaml',
-		'ex': "config/task0_example_inference_config.yaml",
-		'a': "config/task0_methoda_inference_config.yaml",
-		'b': "config/task0_methodb_inference_config.yaml",
-		'c': "config/task0_methodc_inference_config.yaml"},
+		'ex': "../config/task0_example_inference_config.yaml",
+		'a': "../config/task0_methoda_inference_config.yaml",
+		'b': "../config/task0_methodb_inference_config.yaml",
+		'c': "../config/task0_methodc_inference_config.yaml"},
 	1: {
-		'ex': "config/task1_example_inference_config.yaml",
-		'a': "config/task1_methoda_inference_config.yaml",
-		'b': "config/task1_methodb_inference_config.yaml",
-		'c': "config/task1_methodc_inference_config.yaml"
+		'ex': "../config/task1_example_inference_config.yaml",
+		'a': "../config/task1_methoda_inference_config.yaml",
+		'b': "../config/task1_methodb_inference_config.yaml",
+		'c': "../config/task1_methodc_inference_config.yaml"
 	},
 	2: {
-		'ex': "config/task2_example_inference_config.yaml",
-		'a': "config/task2_methoda_inference_config.yaml",
-		'b': "config/task2_methodb_inference_config.yaml",
-		'c': "config/task2_methodc_inference_config.yaml",
-		'demos': "config/task2_methodd_inference_config.yaml",
-		'c_learned': "config/task2_methode_inference_config.yaml"
+		'ex': "../config/task2_example_inference_config.yaml",
+		'a': "../config/task2_methoda_inference_config.yaml",
+		'b': "../config/task2_methodb_inference_config.yaml",
+		'c': "../config/task2_methodc_inference_config.yaml",
+		'demos': "../config/task2_methodd_inference_config.yaml",
+		'c_learned': "../config/task2_methode_inference_config.yaml"
 	},
 	-100: { # don't use this one
 		'a': "config/task3_methoda_inference_config.yaml",
@@ -52,12 +52,12 @@ CONFIG_FILE_DICT = {
 		'e': "config/task3_methode_inference_config.yaml"
 	},
 	3: {
-		'ex': "config/task4_example_inference_config.yaml",
-		'a': "config/task4_methoda_inference_config.yaml",
-		'b': "config/task4_methodb_inference_config.yaml",
-		'c': "config/task4_methodc_inference_config.yaml",
-		'demos': "config/task4_methodd_inference_config.yaml",
-		'c_learned': "config/task4_methode_inference_config.yaml"
+		'ex': "../config/task4_example_inference_config.yaml",
+		'a': "../config/task4_methoda_inference_config.yaml",
+		'b': "../config/task4_methodb_inference_config.yaml",
+		'c': "../config/task4_methodc_inference_config.yaml",
+		'demos': "../config/task4_methodd_inference_config.yaml",
+		'c_learned': "../config/task4_methode_inference_config.yaml"
 	}
 }
 

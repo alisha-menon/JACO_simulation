@@ -51,8 +51,8 @@ class DemoRecorder(object):
 		# Publish to ROS at 100hz
 		r = rospy.Rate(100)
 
-		print "----------------------------------"
-		print "Moving robot, press ENTER to quit:"
+		print("----------------------------------\n\
+			  Moving robot, press ENTER to quit:")
 
 		while not rospy.is_shutdown():
 
@@ -63,7 +63,7 @@ class DemoRecorder(object):
 			self.vel_pub.publish(ros_utils.cmd_to_JointVelocityMsg(self.cmd))
 			r.sleep()
 
-		print "----------------------------------"
+		print("----------------------------------")
 
 		# Process and save the recording.
 		raw_demo = self.expUtil.tracked_traj[:,1:8]
@@ -90,19 +90,19 @@ class DemoRecorder(object):
 		openrave_utils.plotTraj(self.environment.env, self.environment.robot,
 								self.environment.bodies, demo.waypts, size=0.015, color=[0, 0, 1])
 
-		print "Type [yes/y/Y] if you're happy with the demonstration."
+		print("Type [yes/y/Y] if you're happy with the demonstration.")
 		line = raw_input()
 		if (line is not "yes") and (line is not "Y") and (line is not "y"):
-			print "Not happy with demonstration. Terminating experiment."
+			print("Not happy with demonstration. Terminating experiment.")
 		else:
-			print "Please type in the ID number (e.g. [0/1/2/...])."
+			print("Please type in the ID number (e.g. [0/1/2/...]).")
 			ID = raw_input()
-			print "Please type in the task number (e.g. [0/1/2/...])."
+			print("Please type in the task number (e.g. [0/1/2/...]).")
 			task = raw_input()
 			filename = "demo" + "_ID" + ID + "_task" + task
 			savefile = self.expUtil.get_unique_filepath("demos",filename)
 			pickle.dump(demo, open(savefile, "wb" ))
-			print "Saved demonstration in {}.".format(savefile)
+			print("Saved demonstration in {}.".format(savefile))
 		
 		ros_utils.stop_admittance_mode(self.prefix)
 

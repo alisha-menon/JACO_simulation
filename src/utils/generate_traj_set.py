@@ -56,8 +56,8 @@ def generate_traj_set(feat_list):
 	here = os.path.abspath(os.path.join(os.path.dirname( __file__ ), '../../'))
 	savefile = "/data/traj_sets/traj_set_table_laptop.p"
 	pickle.dump(traj_rand, open( here + savefile, "wb" ))
-	print "Saved in: ", savefile
-	print "Used the following weight-combos: ", weight_pairs
+	print("Saved in: ", savefile)
+	print("Used the following weight-combos: ", weight_pairs)
 
 if __name__ == '__main__':
 	feat_list = sys.argv[1]

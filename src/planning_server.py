@@ -82,8 +82,7 @@ class PlanningServer(TeleopInferenceBase):
 						break
 				query = pickle.loads(str(query_bytes))
 				#query = pickle.loads(str(query_bytes.decode('utf-8')))
-				print 'query:'
-				print query
+				print(f"query: {query}")
 				type, params = query
 				out = [] # what to return
 				if type == 0 or type == 2:
@@ -128,7 +127,7 @@ class PlanningServer(TeleopInferenceBase):
 						goal_weights[self.environment.is_learned_feat] = 0.0
 					support = np.arange(len(goal_weights))[goal_weights != 0.0]
 					feat_vals = np.sum(self.environment.featurize(params[0], support), axis=1)
-					print "feature values", feat_vals
+					print("feature values", feat_vals)
 					c_out = np.sum(goal_weights[support] * feat_vals)
 					if isinstance(params[2], int):
 						c_out += 2 * np.sum(goal_weights) * np.linalg.norm(self.goal_locs[params[2]] - self.environment.get_cartesian_coords(params[0][-1]))
@@ -160,8 +159,7 @@ class PlanningServer1():
 					else:
 						break
 				trajopt_query = pickle.loads(trajopt_query_bytes)
-				print 'received planning query'
-				print trajopt_query
+				print(f"received planning query {trajopt_query}")
 				p_out = self.planner.replan(trajopt_query[0],
 											trajopt_query[1],
 											trajopt_query[2],

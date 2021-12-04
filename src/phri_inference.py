@@ -51,8 +51,8 @@ class PHRIInference():
 		# Publish to ROS at 100hz.
 		r = rospy.Rate(100)
 		
-		print "----------------------------------"
-		print "Moving robot, press ENTER to quit:"
+		print("----------------------------------\n\
+		     Moving robot, press ENTER to quit:")
 
 		while not rospy.is_shutdown():
 
@@ -63,19 +63,19 @@ class PHRIInference():
 			self.vel_pub.publish(ros_utils.cmd_to_JointVelocityMsg((180/np.pi)*self.cmd))
 			r.sleep()
 
-		print "----------------------------------"
+		print("----------------------------------")
 
 		# Ask whether to save experimental data for pHRI corrections.
-		print "Type [yes/y/Y] if you'd like to save experimental data."
+		print("Type [yes/y/Y] if you'd like to save experimental data.")
 		line = raw_input()
 		if (line is not "yes") and (line is not "Y") and (line is not "y"):
-			print "Not happy with recording. Terminating experiment."
+			print("Not happy with recording. Terminating experiment.")
 		else:
-			print "Please type in the ID number (e.g. [0/1/2/...])."
+			print("Please type in the ID number (e.g. [0/1/2/...]).")
 			ID = raw_input()
-			print "Please type in the task number."
+			print("Please type in the task number.")
 			task = raw_input()
-			print "Saving experimental data to file..."
+			print("Saving experimental data to file...")
 			settings_string = "ID" + ID + "_" + self.feat_method + "_" + "_".join(self.feat_list) + "_task" + task
 			weights_filename = "weights_" + settings_string
 			betas_filename = "betas_" + settings_string
@@ -253,7 +253,7 @@ class PHRIInference():
 
 	def handle_interaction(self, dq):
 		if self.reached_start and not self.reached_goal:
-			print "Interaction detected!"
+			print("Interaction detected!")
 			timestamp = time.time() - self.controller.path_start_T
 			self.expUtil.update_tauH(timestamp, dq)
 			self.expUtil.update_interaction_point(timestamp, self.curr_pos)

@@ -50,8 +50,8 @@ class PathFollower(object):
 		# Publish to ROS at 100hz.
 		r = rospy.Rate(100)
 
-		print "----------------------------------"
-		print "Moving robot, press ENTER to quit:"
+		print("----------------------------------\n\
+		      Moving robot, press ENTER to quit:")
 
 		while not rospy.is_shutdown():
 
@@ -62,7 +62,7 @@ class PathFollower(object):
 			self.vel_pub.publish(ros_utils.cmd_to_JointVelocityMsg(self.cmd))
 			r.sleep()
 
-		print "----------------------------------"
+		print("----------------------------------")
 
 	def load_parameters(self):
 		"""

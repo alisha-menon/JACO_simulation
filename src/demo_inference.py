@@ -82,7 +82,7 @@ class DemoInference(object):
 
 if __name__ == '__main__':
 	if len(sys.argv) < 1:
-		print "ERROR: Need to provide parameters file (yaml) as input."
+		print("ERROR: Need to provide parameters file (yaml) as input.")
 	else:
 		DemoInference(sys.argv[1])
 

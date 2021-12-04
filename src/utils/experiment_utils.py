@@ -123,7 +123,7 @@ class ExperimentUtils(object):
 		Updates list of timestamped weights.
 		"""
 		if new_weight is None:
-			print "In update_weights: new_weights are None..."
+			print("In update_weights: new_weights are None...")
 			return 
 		new_w = np.array([timestamp] + new_weight)
 		if self.weights is None:
@@ -136,7 +136,7 @@ class ExperimentUtils(object):
 		Updates list of timestamped betas.
 		"""
 		if new_beta is None:
-			print "In update_betas: new_beta is None..."
+			print("In update_betas: new_beta is None...")
 			return 
 		new_b = np.array([timestamp] + new_beta)
 		if self.betas is None:
@@ -149,7 +149,7 @@ class ExperimentUtils(object):
 		Updates list of timestamped betas_u.
 		"""
 		if new_beta_u is None:
-			print "In update_betas_u: new_beta_u is None..."
+			print("In update_betas_u: new_beta_u is None...")
 			return 
 		new_b_u = np.array([timestamp] + new_beta_u)
 		if self.betas_u is None:
@@ -162,7 +162,7 @@ class ExperimentUtils(object):
 		Updates list of timestamped updates.
 		"""
 		if new_update is None:
-			print "In update_updates: new_update is None..."
+			print("In update_updates: new_update is None...")
 			return 
 		new_u = np.array([timestamp] + new_update)
 		if self.updates is None:

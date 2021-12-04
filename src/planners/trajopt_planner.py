@@ -298,7 +298,7 @@ class TrajoptPlanner(object):
 
 		contains_world_eff = "world_efficiency" in nonzero_feat_list
 
-		print "Planning with features:", nonzero_feat_list
+		print("Planning with features:", nonzero_feat_list)
 
 		use_constraint = self.use_constraint_learned or not contains_learned_feat
 
@@ -311,7 +311,7 @@ class TrajoptPlanner(object):
 			# --- Linear interpolation seed --- #
 			if contains_world_eff:
 				init_waypts = self.get_min_world_dist_waypts(start, goal_pose, self.num_waypts)
-				print 'Using world_efficiency_cost initialization'
+				print('Using world_efficiency_cost initialization')
 			elif traj_seed is None:
 				#print("Using straight line initialization!")
 				init_waypts = np.zeros((self.num_waypts,7))
@@ -439,7 +439,7 @@ class TrajoptPlanner(object):
 			traj_plan = Trajectory(self.get_min_world_dist_waypts(start, goal_pose, num_traj_waypts, EE_rot_angle),
 								   np.linspace(start_time, T, num_traj_waypts))
 
-			print "planning took:", time.time() - trajopt_start_time
+			print("planning took:", time.time() - trajopt_start_time)
 			if return_both:
 				return traj, traj_plan
 			elif return_plan:
@@ -448,7 +448,7 @@ class TrajoptPlanner(object):
 				return traj
 
 		waypts = self.trajOpt(start, goal, goal_pose, traj_seed=seed, EE_rot_angle=EE_rot_angle)
-		print "planning took:", time.time() - trajopt_start_time
+		print("planning took:", time.time() - trajopt_start_time)
 		waypts_time = np.linspace(start_time, T, self.num_waypts)
 		traj = Trajectory(waypts, waypts_time)
 		if return_both:
